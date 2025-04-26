@@ -1,0 +1,74 @@
+name: 'Minecraft Server Manager'
+description: 'GitHub Action to set up, start, configure, and stop a Minecraft server'
+author: 'Yousef AlShaikh <yousefalshaikh17@gmail.com>'
+inputs:
+  eula:
+    description: 'Accept the Minecraft EULA (true/false)'
+    required: false
+  properties:
+    description: 'Optional server.properties in key=value format, one per line'
+    required: false
+  command:
+    description: 'Command to run: setup | start | stop'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+
+    - name: Ensure scripts are executable
+      run: chmod +x ${{ github.action_path }}/scripts/*.sh
+      shell: bash
+
+    - name: Validate command and required inputs
+      run: |
+        case "${{ inputs.command }}" in
+          setup)
+            if [ -z "${{ inputs.eula }}" ]; then
+              echo "Error: 'eula' input is required for 'setup' command."
+              exit 1
+            fi
+            ;;
+          start|stop)
+            # No special required fields
+            ;;
+          *)
+            echo "Invalid command: ${{ inputs.command }}"
+            exit 1
+            ;;
+        esac
+      shell: bash
+
+    - name: Set up Java 21
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: '21'
+    
+    - name: Setup Minecraft server
+      id: setup
+      if: inputs.command == 'setup'
+      run: ${{ github.action_path }}/scripts/setup.sh
+      shell: bash
+
+    - name: Configure Minecraft server
+      id: configure
+      if: inputs.command == 'setup'
+      run: |
+        ${{ github.action_path }}/scripts/configure.sh
+      shell: bash
+      env:
+        INPUT_EULA: ${{ inputs.eula }}
+        INPUT_PROPERTIES: ${{ inputs.properties }}
+
+    - name: Start Minecraft server
+      id: start
+      if: inputs.command == 'start'
+      run: ${{ github.action_path }}/scripts/start.sh
+      shell: bash
+
+    - name: Stop Minecraft server
+      id: stop
+      if: inputs.command == 'stop'
+      run: ${{ github.action_path }}/scripts/stop.sh
+      shell: bash
